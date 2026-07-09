@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate Habit Tracker</title>
+    <!-- Chart.js for all the visual analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-main: #eaedf1;
+            --panel-bg: #ffffff;
+            --header-bg: #0b1a2a;
+            --header-text: #ffffff;
+            --accent-blue: #3b82f6;
+            --border-color: #cbd5e1;
+            --text-dark: #1e293b;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-dark);
+            margin: 0;
+            padding: 20px;
+            font-size: 12px;
+            overflow-x: auto;
+        }
+
+        .dashboard-container {
+            min-width: 1400px; 
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* --- NEW: MAIN HEADER & CREDIT --- */
+        .main-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: var(--header-bg);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        }
+        .main-title h1 {
+            margin: 0;
+            font-size: 24px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: #38bdf8;
+        }
+        .auto-save {
+            font-size: 11px;
+            color: #10b981;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-top: 5px;
+        }
+        .auto-save::before {
+            content: '';
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background-color: #10b981;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { box-shadow: 0 0 0 5px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+        .creator-profile {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            background-color: rgba(255,255,255,0.1);
+            padding: 10px 15px;
+            border-radius: 6px;
+        }
+        .creator-img {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            border: 2px solid #38bdf8;
+            object-fit: cover;
+            /* Placeholder image: Replace this link with your actual image URL later */
+            background-image: url('https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png');
+            background-size: cover;
+        }
+        .creator-text {
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        .creator-text strong { color: #38bdf8; font-size: 14px; }
+        .creator-text a {
+            color: white;
+            text-decoration: underline;
+            font-weight: bold;
+        }
+        .creator-text a:hover { color: #38bdf8; }
+
+        /* Top Row Panels */
+        .top-row {
+            display: grid;
+            grid-template-columns: 250px 2fr 1fr 300px;
+            gap: 15px;
+            height: 220px;
+        }
+
+        .panel {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            background-color: var(--header-bg);
+            color: var(--header-text);
+            text-align: center;
+            padding: 8px;
+            font-weight: bold;
+            font-size: 14px;
+            letter-spacing: 1px;
+        }
+
+        .panel-content {
+            padding: 10px;
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        /* Settings Panel Specifics */
+        .settings-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; width: 100%; padding: 10px; }
+        .settings-label { background-color: var(--header-bg); color: white; padding: 7px 5px; text-align: center; font-weight: bold; display: flex; align-items: center; justify-content: center; }
+        .settings-grid select, .settings-grid input { background-color: #f1f5f9; border: 1px solid var(--border-color); text-align: center; padding: 5px; font-weight: bold; font-size: 14px; width: 100%; color: var(--text-dark); cursor: pointer; }
+
+        /* --- FIXED: Overall Stats Panel & Donut Chart --- */
+        .stats-layout {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            height: 100%;
+            padding: 5px;
+            box-sizing: border-box;
+        }
+        .stats-numbers {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100%;
+            flex: 0 0 80px;
+        }
+        .stat-box { text-align: center; margin-bottom: 5px;}
+        .stat-box:last-child { margin-bottom: 0; }
+        .stat-box-label { background-color: var(--header-bg); color: white; padding: 3px; font-size: 11px; }
+        .stat-box-val { background-color: #e2e8f0; padding: 6px; font-weight: bold; font-size: 16px; }
+        
+        .donut-container {
+            flex: 1;
+            position: relative;
+            height: 140px; /* Locked height */
+            width: 140px;  /* Locked width */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: 10px;
+        }
+        .donut-text {
+            position: absolute;
+            font-size: 28px;
+            font-weight: bold;
+            color: var(--text-dark);
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* Main Grid Table */
+        .table-container { background: var(--panel-bg); border: 1px solid var(--border-color); box-shadow: 0 2px 4px rgba(0,0,0,0.05); width: 100%; }
+        table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+        th, td { border: 1px solid var(--border-color); text-align: center; padding: 4px; }
+        th { background-color: var(--header-bg); color: var(--header-text); font-weight: normal; }
+        
+        .th-habit { width: 220px; text-align: right; padding-right: 15px; font-weight: bold; cursor: text; }
+        .th-habit:hover { background-color: #1a2f47; }
+        .th-habit:focus { outline: 2px solid var(--accent-blue); background-color: #1a2f47; }
+        
+        .th-week { border-left: 2px solid #fff; border-right: 2px solid #fff; }
+        .th-day-letter { font-size: 10px; }
+        .th-day-num { font-weight: bold; width: 22px; }
+        .analysis-bg { background-color: #f8fafc; width: 40px; }
+        
+        input[type="checkbox"] { width: 14px; height: 14px; cursor: pointer; accent-color: var(--header-bg); }
+
+        .prog-bar-container { width: 100%; height: 14px; background-color: #e2e8f0; border-radius: 2px; overflow: hidden; }
+        .prog-bar-fill { height: 100%; background-color: var(--header-bg); transition: width 0.3s; }
+
+        /* Bottom Row */
+        .bottom-row { display: grid; grid-template-columns: 3fr 1fr; gap: 15px; height: 250px; }
+        .wellness-row { display: flex; width: 100%; margin-bottom: 5px; align-items: center;}
+        .wellness-label { width: 220px; text-align: right; padding-right: 15px; font-weight: bold; }
+        .w-input { flex-grow: 1; text-align: center; }
+        select.wellness-sel, input.wellness-num { width: 90%; font-size: 10px; border: 1px solid #ccc; background: transparent; text-align: center; }
+        
+        .top10-list { list-style: none; padding: 0 15px; margin: 0; width: 100%; }
+        .top10-list li { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f1f5f9; }
+
+        .add-habit-btn { background: #e2e8f0; border: none; padding: 8px; width: 100%; cursor: pointer; font-weight: bold; color: var(--text-dark); margin-top: 5px; }
+        .add-habit-btn:hover { background: #cbd5e1; }
+    </style>
+</head>
+<body>
+
+<div class="dashboard-container">
+    
+    <!-- MAIN HEADER -->
+    <header class="main-header">
+        <div class="main-title">
+            <h1>Tracker OS Dashboard</h1>
+            <div class="auto-save">All progress auto-saves to browser</div>
+        </div>
+        <div class="creator-profile">
+            <!-- Replace the src below with a link to your actual photo if you want -->
+            <div class="cropped_circle_image.png"></div>
+            <div class="creator-text">
+                Dashboard built by <strong>PENGUIN CODER/strong><br>
+                Need custom digital tools? <a href="https://www.instagram.com/code_with_penguin" target="_blank">DM me on Instagram</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- TOP ROW: Settings & Charts -->
+    <div class="top-row">
+        <!-- Settings -->
+        <div class="panel">
+            <div class="panel-header">HABIT TRACKER<br><span id="headerMonth" style="font-size:10px; font-weight:normal;">~ July ~</span></div>
+            <div class="panel-header" style="border-top: 2px solid white;">CALENDAR SETTINGS</div>
+            <div class="panel-content" style="align-items: flex-start;">
+                <div class="settings-grid">
+                    <div class="settings-label">Year</div>
+                    <input type="number" id="selYear" value="2026" onchange="changeDate()">
+                    <div class="settings-label">Month</div>
+                    <select id="selMonth" onchange="changeDate()">
+                        <option value="0">January</option>
+                        <option value="1">February</option>
+                        <option value="2">March</option>
+                        <option value="3">April</option>
+                        <option value="4">May</option>
+                        <option value="5">June</option>
+                        <option value="6" selected>July</option>
+                        <option value="7">August</option>
+                        <option value="8">September</option>
+                        <option value="9">October</option>
+                        <option value="10">November</option>
+                        <option value="11">December</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">Daily Progress</div>
+            <div class="panel-content"><canvas id="chartDaily"></canvas></div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">Weekly Progress</div> 
+            <div class="panel-content"><canvas id="chartWeekly"></canvas></div>
+        </div>
+
+        <!-- Overall Stats -->
+        <div class="panel">
+            <div class="panel-header" style="background-color: transparent; padding: 0;">
+                <div style="display: flex;">
+                    <div style="flex:1; background-color:var(--header-bg); padding:8px; border-right: 2px solid white;">Goal</div>
+                    <div style="flex:1; background-color:var(--header-bg); padding:8px;">Overall Stats</div>
+                </div>
+            </div>
+            <div class="panel-content" style="padding: 5px;">
+                <div class="stats-layout">
+                    <div class="stats-numbers">
+                        <div class="stat-box"><div class="stat-box-val" id="val-goal">0</div></div>
+                        <div class="stat-box">
+                            <div class="stat-box-label">Completed</div>
+                            <div class="stat-box-val" id="val-completed" style="background-color: #cbd5e1;">0</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-box-label">Left</div>
+                            <div class="stat-box-val" id="val-left">0</div>
+                        </div>
+                    </div>
+                    <!-- FIXED: Strict bounds applied to this container -->
+                    <div class="donut-container">
+                        <canvas id="chartDonut"></canvas>
+                        <div id="donutText" class="donut-text">0%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MIDDLE ROW: The Massive Grid -->
+    <div class="table-container">
+        <table id="mainGrid">
+            <thead id="gridHead"></thead>
+            <tbody id="gridBody"></tbody>
+        </table>
+        <button class="add-habit-btn" onclick="addNewHabit()">+ Add New Habit</button>
+    </div>
+
+    <!-- BOTTOM ROW: Wellness & Top 10 -->
+    <div class="bottom-row">
+        <div class="panel">
+            <div class="panel-header">Overall wellness</div>
+            <div style="padding: 10px;">
+                <div class="wellness-row">
+                    <div class="wellness-label">Mood</div>
+                    <div id="moodInputs" style="display:flex; flex-grow:1;"></div>
+                </div>
+                <div class="wellness-row">
+                    <div class="wellness-label">Hours of Sleep</div>
+                    <div id="sleepInputs" style="display:flex; flex-grow:1;"></div>
+                </div>
+            </div>
+            <div class="panel-content"><canvas id="chartWellness"></canvas></div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">TOP 10 HABITS</div>
+            <div class="panel-content" style="align-items: flex-start; overflow-y: auto;">
+                <ul class="top10-list" id="top10List"></ul>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // --- 1. DYNAMIC STATE LOGIC ---
+    let currentYear = 2026;
+    let currentMonth = 6; // 0-indexed (6 = July)
+    let daysInMonth = 31;
+    let startDayOffset = 3; // Wednesday
+
+    // Global Habit Names (Persists across months)
+    let globalHabitNames = JSON.parse(localStorage.getItem('dynamicHabitNames')) || [
+        "Wake up at 05:00 ⏰", "Gym 💪", "CS / Bug Bounty Study 💻", "Day Planning 📅", 
+        "Project Work 🎯", "ZENVOX Admin 📊", "Reading / Learning 📖", 
+        "Social Media Detox 📵", "No Junk Food 🍔", "Cold Shower 🚿", "Meditate 🧘"
+    ];
+
+    // Current Month Data
+    let habitData = [];
+    let moodData = [];
+    let sleepData = [];
+
+    // Chart Instances
+    let chartDaily, chartWeekly, chartDonut, chartWellness;
+    const DOW = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+    const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+    function getStorageKey(type) { return `tracker_${type}_${currentYear}_${currentMonth}`; }
+
+    function loadMonthData() {
+        daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+        startDayOffset = new Date(currentYear, currentMonth, 1).getDay();
+
+        let savedHabits = JSON.parse(localStorage.getItem(getStorageKey('habits')));
+        if (savedHabits && savedHabits.length === globalHabitNames.length) {
+            habitData = savedHabits;
+        } else {
+            habitData = globalHabitNames.map((_, i) => (savedHabits && savedHabits[i]) ? savedHabits[i] : Array(daysInMonth).fill(false));
+        }
+
+        moodData = JSON.parse(localStorage.getItem(getStorageKey('mood'))) || Array(daysInMonth).fill(3);
+        sleepData = JSON.parse(localStorage.getItem(getStorageKey('sleep'))) || Array(daysInMonth).fill(7);
+        
+        document.getElementById('headerMonth').innerText = `~ ${MONTH_NAMES[currentMonth]} ~`;
+    }
+
+    // --- 2. BUILD THE HTML GRID ---
+    function buildGrid() {
+        let weekColSpans = [];
+        let daysLeft = daysInMonth;
+        for(let w=1; w<=5; w++) {
+            if(daysLeft >= 7) { weekColSpans.push(7); daysLeft -= 7; }
+            else if (daysLeft > 0) { weekColSpans.push(daysLeft); daysLeft = 0; }
+        }
+
+        let thead = `<tr><th rowspan="3" class="th-habit">My Habits</th>`;
+        weekColSpans.forEach((span, i) => {
+            thead += `<th colspan="${span}" class="th-week">Week ${i+1}</th>`;
+        });
+        let emptyHeaderCols = 5; 
+        thead += `<th colspan="${emptyHeaderCols}" style="background-color: transparent;"></th></tr><tr>`;
+        
+        for(let i=0; i<daysInMonth; i++) {
+            thead += `<th class="th-day-letter">${DOW[(startDayOffset + i) % 7]}</th>`;
+        }
+        thead += `<th colspan="5" class="panel-header" style="border: 1px solid white;">Analysis</th></tr><tr>`;
+        
+        for(let i=1; i<=daysInMonth; i++) {
+            thead += `<th class="th-day-num">${i}</th>`;
+        }
+        thead += `<th class="analysis-bg">Goal</th><th class="analysis-bg">Actual</th><th class="analysis-bg">Left</th><th class="analysis-bg" style="width: 80px;">Progress</th><th class="analysis-bg">%</th></tr>`;
+        document.getElementById('gridHead').innerHTML = thead;
+
+        // Build Wellness Inputs
+        let moodHtml = '', sleepHtml = '';
+        for(let i=0; i<daysInMonth; i++) {
+            moodHtml += `<div class="w-input"><select class="wellness-sel" onchange="updateWellness('mood', ${i}, this.value)">
+                <option value="5" ${moodData[i]==5?'selected':''}>5</option>
+                <option value="4" ${moodData[i]==4?'selected':''}>4</option>
+                <option value="3" ${moodData[i]==3?'selected':''}>3</option>
+                <option value="2" ${moodData[i]==2?'selected':''}>2</option>
+                <option value="1" ${moodData[i]==1?'selected':''}>1</option>
+            </select></div>`;
+            sleepHtml += `<div class="w-input"><input class="wellness-num" type="number" min="0" max="24" value="${sleepData[i]}" onchange="updateWellness('sleep', ${i}, this.value)"></div>`;
+        }
+        document.getElementById('moodInputs').innerHTML = moodHtml;
+        document.getElementById('sleepInputs').innerHTML = sleepHtml;
+
+        renderRows();
+    }
+
+    function renderRows() {
+        let tbody = '';
+        let habitTotals = [];
+
+        globalHabitNames.forEach((name, hIndex) => {
+            let actual = habitData[hIndex].filter(Boolean).length;
+            let left = daysInMonth - actual;
+            let percent = Math.round((actual / daysInMonth) * 100);
+            habitTotals.push({ name: name, percent: percent });
+
+            tbody += `<tr><th class="th-habit" contenteditable="true" onblur="editHabitName(${hIndex}, this.innerText)">${name}</th>`;
+            
+            for(let d=0; d<daysInMonth; d++) {
+                let isChecked = habitData[hIndex][d] ? 'checked' : '';
+                tbody += `<td><input type="checkbox" ${isChecked} onchange="toggleCheck(${hIndex}, ${d})"></td>`;
+            }
+
+            tbody += `<td class="analysis-bg">${daysInMonth}</td>`;
+            tbody += `<td class="analysis-bg">${actual}</td>`;
+            tbody += `<td class="analysis-bg" style="color: ${left > 0 ? '#ef4444' : 'inherit'}">${left}</td>`;
+            tbody += `<td class="analysis-bg"><div class="prog-bar-container"><div class="prog-bar-fill" style="width: ${percent}%;"></div></div></td>`;
+            tbody += `<td class="analysis-bg" style="font-size: 10px;">${percent}%</td></tr>`;
+        });
+        document.getElementById('gridBody').innerHTML = tbody;
+
+        habitTotals.sort((a, b) => b.percent - a.percent);
+        let top10Html = '';
+        for(let i=0; i<Math.min(10, habitTotals.length); i++) {
+            top10Html += `<li><span style="font-weight:bold;">${i+1}</span> <span style="flex-grow:1; margin-left:15px;">${habitTotals[i].name}</span> <span>${habitTotals[i].percent}%</span></li>`;
+        }
+        document.getElementById('top10List').innerHTML = top10Html;
+    }
+
+    // --- 3. DATA LOGIC & ACTIONS ---
+    function changeDate() {
+        currentYear = parseInt(document.getElementById('selYear').value);
+        currentMonth = parseInt(document.getElementById('selMonth').value);
+        loadMonthData();
+        buildGrid();
+        updateCharts();
+    }
+
+    function editHabitName(index, newName) {
+        if(newName.trim() === "") return;
+        globalHabitNames[index] = newName;
+        localStorage.setItem('dynamicHabitNames', JSON.stringify(globalHabitNames));
+    }
+
+    function addNewHabit() {
+        globalHabitNames.push("New Task 📝");
+        habitData.push(Array(daysInMonth).fill(false));
+        localStorage.setItem('dynamicHabitNames', JSON.stringify(globalHabitNames));
+        saveData();
+        renderRows();
+        updateCharts();
+    }
+
+    function toggleCheck(hIndex, dIndex) {
+        habitData[hIndex][dIndex] = !habitData[hIndex][dIndex];
+        saveData();
+        renderRows();
+        updateCharts();
+    }
+
+    function updateWellness(type, index, value) {
+        if(type === 'mood') moodData[index] = parseInt(value);
+        if(type === 'sleep') sleepData[index] = parseFloat(value);
+        saveData();
+        updateCharts();
+    }
+
+    function saveData() {
+        localStorage.setItem(getStorageKey('habits'), JSON.stringify(habitData));
+        localStorage.setItem(getStorageKey('mood'), JSON.stringify(moodData));
+        localStorage.setItem(getStorageKey('sleep'), JSON.stringify(sleepData));
+    }
+
+    // --- 4. CHARTS CONFIGURATION ---
+    function initCharts() {
+        Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+        const chartColors = { dark: '#0b1a2a', grid: '#e2e8f0' };
+
+        chartDaily = new Chart(document.getElementById('chartDaily'), {
+            type: 'bar',
+            data: { labels: [], datasets: [{ data: [], backgroundColor: chartColors.dark }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { max: 100 }, x: { grid: { display: false } } } }
+        });
+
+        chartWeekly = new Chart(document.getElementById('chartWeekly'), {
+            type: 'bar',
+            data: { labels: ['week 1', 'week 2', 'week 3', 'week 4', 'week 5'], datasets: [{ data: [], backgroundColor: chartColors.dark }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { max: 100 }, x: { grid: { display: false } } } }
+        });
+
+        chartDonut = new Chart(document.getElementById('chartDonut'), {
+            type: 'doughnut',
+            data: { labels: ['Done', 'Left'], datasets: [{ data: [0, 100], backgroundColor: [chartColors.dark, '#cbd5e1'], borderWidth: 0 }] },
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false, // Ensures it fits inside the flex container
+                cutout: '75%', 
+                layout: { padding: 5 },
+                plugins: { legend: { display: false }, tooltip: { enabled: false } } 
+            }
+        });
+
+        chartWellness = new Chart(document.getElementById('chartWellness'), {
+            type: 'line',
+            data: { labels: [], datasets: [
+                    { label: 'Mood', data: [], borderColor: '#10b981', backgroundColor: '#10b981', yAxisID: 'y' },
+                    { label: 'Hours of Sleep', data: [], borderColor: chartColors.dark, backgroundColor: chartColors.dark, yAxisID: 'y1' }
+            ]},
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { usePointStyle: true } } },
+                scales: { x: { display: false }, y: { display: false, min: 0, max: 5 }, y1: { display: false, min: 0, max: 12 } }
+            }
+        });
+    }
+
+    function updateCharts() {
+        const TOTAL_HABITS = globalHabitNames.length;
+        const GOAL = TOTAL_HABITS * daysInMonth;
+        let grandTotal = 0;
+        
+        let dailyPcts = Array(daysInMonth).fill(0);
+        let dLabels = [];
+        for(let d=0; d<daysInMonth; d++) {
+            dLabels.push(DOW[(startDayOffset + d) % 7]);
+            let dayCount = 0;
+            for(let h=0; h<TOTAL_HABITS; h++) {
+                if(habitData[h][d]) { dayCount++; grandTotal++; }
+            }
+            dailyPcts[d] = Math.round((dayCount / TOTAL_HABITS) * 100);
+        }
+
+        let weekSpans = [];
+        let cur = 0;
+        while(cur < daysInMonth) {
+            let next = Math.min(cur + 7, daysInMonth);
+            weekSpans.push([cur, next]);
+            cur = next;
+        }
+        
+        let weeklyPcts = weekSpans.map(span => {
+            let possible = (span[1] - span[0]) * TOTAL_HABITS;
+            let actual = 0;
+            for(let d=span[0]; d<span[1]; d++) { actual += (dailyPcts[d] / 100) * TOTAL_HABITS; }
+            return Math.round((actual / possible) * 100);
+        });
+
+        document.getElementById('val-goal').innerText = GOAL;
+        document.getElementById('val-completed').innerText = grandTotal;
+        document.getElementById('val-left').innerText = GOAL - grandTotal;
+        
+        let overallPct = Math.round((grandTotal / GOAL) * 100) || 0;
+        document.getElementById('donutText').innerText = overallPct + '%';
+
+        chartDaily.data.labels = dLabels;
+        chartDaily.data.datasets[0].data = dailyPcts;
+        chartDaily.update();
+
+        chartWeekly.data.datasets[0].data = weeklyPcts;
+        chartWeekly.update();
+
+        chartDonut.data.datasets[0].data = [grandTotal, GOAL - grandTotal];
+        chartDonut.update();
+
+        chartWellness.data.labels = Array.from({length: daysInMonth}, (_,i)=> i+1);
+        chartWellness.data.datasets[0].data = moodData;
+        chartWellness.data.datasets[1].data = sleepData;
+        chartWellness.update();
+    }
+
+    // --- 5. BOOT SEQUENCE ---
+    document.getElementById('selYear').value = currentYear;
+    document.getElementById('selMonth').value = currentMonth;
+    loadMonthData();
+    buildGrid();
+    initCharts();
+    updateCharts();
+</script>
+
+</body>
+</html>
